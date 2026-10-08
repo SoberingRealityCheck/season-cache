@@ -155,3 +155,6 @@ similar player-crafted items are excluded by default. Datapack-extensible.
 - Fix: server thread hung (and the game could not close) when a chunk loaded. 26.x
   `Level.getHeight` loads the chunk and blocks. All height reads now go through
   `ChunkSeasonReconciler.topY`, which never loads a chunk.
+
+## 1.3.1+26.2.2 (26.2 port)
+- Metadata only. Homepage, sources and issues now point at the port. Added the port author. License file credits both.

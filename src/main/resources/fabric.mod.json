@@ -5,12 +5,13 @@
   "name": "Season Cache",
   "description": "Keeps snow and ice in sync with Serene Seasons. Removes snow in spring, places it in winter, and drives LOD shader snow coverage for Nova Reimagined and Distant Horizons.",
   "authors": [
-    "ItsThatNova"
+    "ItsThatNova",
+    "SoberingRealityCheck (26.2 port)"
   ],
   "contact": {
-    "homepage": "https://modrinth.com/mod/seasoncache",
-    "sources": "https://github.com/ItsThatNova/season-cache",
-    "issues": "https://github.com/ItsThatNova/season-cache/issues"
+    "homepage": "https://github.com/SoberingRealityCheck/season-cache",
+    "sources": "https://github.com/SoberingRealityCheck/season-cache",
+    "issues": "https://github.com/SoberingRealityCheck/season-cache/issues"
   },
   "license": "MIT",
   "icon": "assets/seasoncache/icon.png",
