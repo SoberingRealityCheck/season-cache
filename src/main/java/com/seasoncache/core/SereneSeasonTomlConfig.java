@@ -2,7 +2,7 @@ package com.seasoncache.core;
 
 import com.seasoncache.SeasonCacheMod;
 import net.minecraft.server.MinecraftServer;
-import net.minecraft.util.WorldSavePath;
+import net.minecraft.world.level.storage.LevelResource;
 
 import java.io.IOException;
 import java.lang.reflect.Array;
@@ -39,7 +39,7 @@ public final class SereneSeasonTomlConfig {
             Method valuesMethod = subSeasonClass.getMethod("values");
             Method asStringMethod = null;
             try {
-                asStringMethod = subSeasonClass.getMethod("asString");
+                asStringMethod = subSeasonClass.getMethod("getSerializedName");
             } catch (NoSuchMethodException ignored) {
             }
             Object values = valuesMethod.invoke(null);
@@ -151,7 +151,7 @@ public final class SereneSeasonTomlConfig {
     }
 
     private static Path hashPath(MinecraftServer server) {
-        return server.getSavePath(WorldSavePath.ROOT)
+        return server.getWorldPath(LevelResource.ROOT)
                 .resolve("seasoncache")
                 .resolve("ss_rule_hash.txt");
     }

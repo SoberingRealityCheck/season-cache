@@ -1,10 +1,10 @@
 package com.seasoncache.core;
 
 import com.seasoncache.SeasonCacheMod;
-import net.minecraft.registry.entry.RegistryEntry;
-import net.minecraft.util.math.BlockPos;
-import net.minecraft.util.math.ChunkPos;
-import net.minecraft.world.biome.Biome;
+import net.minecraft.core.Holder;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.biome.Biome;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -78,7 +78,7 @@ public final class RuleDerivationThread {
                 DerivationTask task = this.queue.take();
                 try {
                     RuntimeTypes.ChunkSeasonRule rule = ChunkSeasonReconciler.buildChunkSeasonRule(
-                            task.samplePos(), task.biomeEntry(), task.ruleConfig());
+                            task.samplePos(), task.biomeEntry(), task.ruleConfig(), task.seaLevel());
                     this.results.offer(new DerivationResult(task.chunkPos(), rule, task.staticSample()));
                 } finally {
                     this.pendingCount.decrementAndGet();
@@ -98,7 +98,7 @@ public final class RuleDerivationThread {
         while ((task = this.queue.poll()) != null) {
             try {
                 RuntimeTypes.ChunkSeasonRule rule = ChunkSeasonReconciler.buildChunkSeasonRule(
-                        task.samplePos(), task.biomeEntry(), task.ruleConfig());
+                        task.samplePos(), task.biomeEntry(), task.ruleConfig(), task.seaLevel());
                 this.results.offer(new DerivationResult(task.chunkPos(), rule, task.staticSample()));
             } catch (Exception e) {
                 SeasonCacheMod.LOGGER.error(
@@ -116,15 +116,16 @@ public final class RuleDerivationThread {
     /**
      * Inputs to a single-chunk rule derivation task.
      * All fields are immutable and safe to read from the derivation thread.
-     * World-dependent values (samplePos, biomeEntry, staticSample) must be
+     * Level-dependent values (samplePos, biomeEntry, staticSample) must be
      * resolved on the main thread before submission.
      */
     public record DerivationTask(
             ChunkPos chunkPos,
             BlockPos samplePos,
-            RegistryEntry<Biome> biomeEntry,
+            Holder<Biome> biomeEntry,
             RuntimeTypes.SeasonRuleConfig ruleConfig,
-            RuntimeTypes.StaticChunkClimate staticSample
+            RuntimeTypes.StaticChunkClimate staticSample,
+            int seaLevel
     ) {}
 
     /**

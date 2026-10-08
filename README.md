@@ -149,3 +149,12 @@ MIT. See LICENSE for full terms.
 
 **ItsThatNova** — mod author  
 GitHub: [https://github.com/ItsThatNova](https://github.com/ItsThatNova)
+
+---
+
+## 26.2 port
+
+Unofficial port of Season Cache 1.3.1 by ItsThatNova (MIT) to Minecraft 26.2, Java 25, Mojang names.
+Status: compiles, loads, commands work. Reconcile + coverage map still need a play test with a client.
+Changes: class/method renames, world folder layout (`DimensionType.getStorageFolder`),
+Serene Seasons 26.x temperature call (needs a sea level int).

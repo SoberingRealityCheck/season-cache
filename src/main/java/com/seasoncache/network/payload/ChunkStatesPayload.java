@@ -1,20 +1,20 @@
 package com.seasoncache.network.payload;
 
 import com.seasoncache.SeasonCacheMod;
-import net.minecraft.network.PacketByteBuf;
-import net.minecraft.network.codec.PacketCodec;
-import net.minecraft.network.packet.CustomPayload;
-import net.minecraft.util.Identifier;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.codec.StreamCodec;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.resources.Identifier;
 
-public record ChunkStatesPayload(Identifier dimensionId, int epoch, long[] packedChunkStates) implements CustomPayload {
-    public static final CustomPayload.Id<ChunkStatesPayload> ID = new CustomPayload.Id<>(Identifier.of(SeasonCacheMod.MOD_ID, "chunk_states"));
-    public static final PacketCodec<PacketByteBuf, ChunkStatesPayload> CODEC = CustomPayload.codecOf(ChunkStatesPayload::write, ChunkStatesPayload::new);
+public record ChunkStatesPayload(Identifier dimensionId, int epoch, long[] packedChunkStates) implements CustomPacketPayload {
+    public static final CustomPacketPayload.Type<ChunkStatesPayload> ID = new CustomPacketPayload.Type<>(Identifier.fromNamespaceAndPath(SeasonCacheMod.MOD_ID, "chunk_states"));
+    public static final StreamCodec<FriendlyByteBuf, ChunkStatesPayload> CODEC = CustomPacketPayload.codec(ChunkStatesPayload::write, ChunkStatesPayload::new);
 
-    public ChunkStatesPayload(PacketByteBuf buf) {
+    public ChunkStatesPayload(FriendlyByteBuf buf) {
         this(buf.readIdentifier(), buf.readVarInt(), readPackedChunkStates(buf));
     }
 
-    private void write(PacketByteBuf buf) {
+    private void write(FriendlyByteBuf buf) {
         buf.writeIdentifier(this.dimensionId);
         buf.writeVarInt(this.epoch);
         buf.writeVarInt(this.packedChunkStates.length);
@@ -23,7 +23,7 @@ public record ChunkStatesPayload(Identifier dimensionId, int epoch, long[] packe
         }
     }
 
-    private static long[] readPackedChunkStates(PacketByteBuf buf) {
+    private static long[] readPackedChunkStates(FriendlyByteBuf buf) {
         int size = buf.readVarInt();
         long[] packed = new long[size];
         for (int i = 0; i < size; i++) {
@@ -33,7 +33,7 @@ public record ChunkStatesPayload(Identifier dimensionId, int epoch, long[] packe
     }
 
     @Override
-    public CustomPayload.Id<? extends CustomPayload> getId() {
+    public CustomPacketPayload.Type<? extends CustomPacketPayload> type() {
         return ID;
     }
 }

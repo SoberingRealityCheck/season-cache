@@ -32,3 +32,5 @@ libs/*.jar
 
 # Remapped jars
 remapped/
+
+run/
