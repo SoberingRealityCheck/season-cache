@@ -150,3 +150,8 @@ it automatically.
 `seasoncache:snow_placement_blacklist` — blocks excluded from aggressive-mode snow
 placement even when the full-cube geometry check passes. Workstations, storage, and
 similar player-crafted items are excluded by default. Datapack-extensible.
+
+## 1.3.1+26.2.1 (26.2 port)
+- Fix: server thread hung (and the game could not close) when a chunk loaded. 26.x
+  `Level.getHeight` loads the chunk and blocks. All height reads now go through
+  `ChunkSeasonReconciler.topY`, which never loads a chunk.

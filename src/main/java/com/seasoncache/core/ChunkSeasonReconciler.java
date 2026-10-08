@@ -17,6 +17,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.biome.Biome;
 import sereneseasons.api.season.Season;
@@ -30,6 +31,18 @@ import sereneseasons.season.SeasonHooks;
  * add/remove work for the chunk, and marking the chunk applied for the epoch.
  */
 public final class ChunkSeasonReconciler {
+
+    /**
+     * Top Y of the heightmap, or the world bottom if the chunk is not loaded.
+     * HACK/BUG GUARD: 26.x Level.getHeight loads the chunk and blocks the server
+     * thread until it arrives. That hung shutdown in testing. The 1.21 call just
+     * returned the bottom. Never call Level.getHeight directly in this mod.
+     */
+    public static int topY(ServerLevel world, int x, int z) {
+        LevelChunk chunk = world.getChunkSource().getChunkNow(x >> 4, z >> 4);
+        if (chunk == null) return world.getMinY();
+        return chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+    }
 
     /** 26.x dropped new ChunkPos(BlockPos). Block to chunk is a shift by 4. */
     public static ChunkPos chunkOf(BlockPos p) {
@@ -112,7 +125,7 @@ public final class ChunkSeasonReconciler {
     private RuntimeTypes.StaticChunkClimate createStaticClimateSample(ServerLevel world, ChunkPos chunkPos) {
         int worldX = chunkPos.getMinBlockX() + 8;
         int worldZ = chunkPos.getMinBlockZ() + 8;
-        int surfaceY = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, worldX, worldZ) - 1;
+        int surfaceY = topY(world, worldX, worldZ) - 1;
         surfaceY = Math.max(surfaceY, world.getMinY());
         BlockPos samplePos = new BlockPos(worldX, surfaceY, worldZ);
         Holder<Biome> biomeEntry = world.getBiome(samplePos);
@@ -186,7 +199,7 @@ public final class ChunkSeasonReconciler {
                 // surface block (e.g. grass). Snow layers sit ON TOP of the surface at topY,
                 // and ice replaces the surface block at topY-1. Check both positions so we
                 // catch snow regardless of whether it is included in the heightmap or not.
-                int surfaceY = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, worldX, worldZ) - 1;
+                int surfaceY = topY(world, worldX, worldZ) - 1;
                 if (surfaceY < bottomY) continue;
 
                 if (!snowy) {
@@ -222,8 +235,7 @@ public final class ChunkSeasonReconciler {
                 int worldX = chunkPos.getMinBlockX() + localX;
                 int worldZ = chunkPos.getMinBlockZ() + localZ;
 
-                int topY = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                        worldX, worldZ) - 1;
+                int topY = topY(world, worldX, worldZ) - 1;
                 if (topY < bottomY) continue;
 
                 pos.set(worldX, topY, worldZ);

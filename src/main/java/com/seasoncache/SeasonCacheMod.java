@@ -234,7 +234,7 @@ public final class SeasonCacheMod implements ModInitializer {
 
         if (!this.store.hasChunkSeasonRule(world, chunkPos)) {
             // No rule yet — queue for derivation. Sweep and sync fire after rule lands.
-            submitDerivationTask(world, chunkPos);
+            submitDerivationTask(world, chunkPos, chunk);
         } else {
             if (!this.store.isChunkSwept(world, chunkPos, currentEpoch)) {
                 // Rule exists but not yet confirmed swept this epoch — enqueue for sweep.
@@ -256,14 +256,16 @@ public final class SeasonCacheMod implements ModInitializer {
      * temperature computation to the derivation thread (or IO thread fallback).
      * Deduplicates — chunks already pending derivation are skipped.
      */
-    private void submitDerivationTask(ServerLevel world, ChunkPos chunkPos) {
+    private void submitDerivationTask(ServerLevel world, ChunkPos chunkPos, LevelChunk loaded) {
         long key = chunkPos.pack();
         if (!this.pendingDerivations.add(key)) return; // already queued
 
         int worldX = chunkPos.getMinBlockX() + 8;
         int worldZ = chunkPos.getMinBlockZ() + 8;
         int surfaceY = Math.max(
-                world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, worldX, worldZ) - 1,
+                (loaded != null
+                        ? loaded.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, worldX, worldZ)
+                        : ChunkSeasonReconciler.topY(world, worldX, worldZ)) - 1,
                 world.getMinY());
         BlockPos samplePos = new BlockPos(worldX, surfaceY, worldZ);
         Holder<Biome> biomeEntry = world.getBiome(samplePos);
@@ -491,7 +493,7 @@ public final class SeasonCacheMod implements ModInitializer {
         for (ChunkPos chunkPos : candidateChunks) {
             if (!this.store.hasChunkSeasonRule(overworld, chunkPos)) {
                 // No rule yet — queue for derivation; sweep will follow automatically
-                submitDerivationTask(overworld, chunkPos);
+                submitDerivationTask(overworld, chunkPos, null);
             } else {
                 reconcileList.add(chunkPos);
             }

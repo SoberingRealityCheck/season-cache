@@ -196,8 +196,7 @@ public final class SeasonCacheCommands {
                     for (int lx = 0; lx < 16; lx++) {
                         int worldX = chunkPos.getMinBlockX() + lx;
                         int worldZ = chunkPos.getMinBlockZ() + lz;
-                        int topY   = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                                                   worldX, worldZ) - 1;
+                        int topY   = ChunkSeasonReconciler.topY(world, worldX, worldZ) - 1;
 
                         if (topY < world.getMinY()) continue;
 

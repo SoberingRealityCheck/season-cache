@@ -276,8 +276,7 @@ public final class UnloadedChunkCoverageBuilder {
 
         int surfaceY = entry.surfaceY();
         if (surfaceY == RegionHeightmapReader.UNAVAILABLE) {
-            surfaceY = world.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES,
-                    chunkPos.getMinBlockX() + SAMPLE_LOCAL_X, chunkPos.getMinBlockZ() + SAMPLE_LOCAL_Z) - 1;
+            surfaceY = ChunkSeasonReconciler.topY(world, chunkPos.getMinBlockX() + SAMPLE_LOCAL_X, chunkPos.getMinBlockZ() + SAMPLE_LOCAL_Z) - 1;
         }
         surfaceY = Math.max(surfaceY, world.getMinY());
         int worldX = chunkPos.getMinBlockX() + SAMPLE_LOCAL_X;
