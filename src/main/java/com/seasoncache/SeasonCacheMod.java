@@ -80,7 +80,8 @@ public final class SeasonCacheMod implements ModInitializer {
     // Main thread resolves world-dependent inputs, derivation thread runs
     // the 12-season temperature computation, results drain back each tick.
     private RuleDerivationThread derivationThread;
-    private final ConcurrentLinkedQueue<RuleDerivationThread.DerivationResult> derivationResults
+    // New queue per server (see resetServerState) so a slow old thread can't post into the next world.
+    private ConcurrentLinkedQueue<RuleDerivationThread.DerivationResult> derivationResults
             = new ConcurrentLinkedQueue<>();
     private final Set<Long> pendingDerivations = ConcurrentHashMap.newKeySet();
 
@@ -112,12 +113,7 @@ public final class SeasonCacheMod implements ModInitializer {
         this.config = SeasonCacheConfig.load();
         this.seasonProvider = new SereneAwareSeasonProvider();
         this.epochService = new SeasonEpochService(this.config, this.seasonProvider);
-        this.ioThread = new RegionIOThread();
-        this.store = new ChunkSeasonStore();
-        this.store.setIOThread(this.ioThread);
-        this.syncManager = new SeasonCacheSyncManager(this.store);
-        this.reconciler = new ChunkSeasonReconciler(this.config, this.seasonProvider, this.epochService, this.store);
-        this.coverageBuilder = new UnloadedChunkCoverageBuilder(this.config, this.seasonProvider, this.epochService, this.store, this.ioThread);
+        resetServerState();
 
         SeasonCacheNetworking.registerPayloadTypes();
         CommandRegistrationCallback.EVENT.register((dispatcher, registryAccess, environment) ->
@@ -128,6 +124,10 @@ public final class SeasonCacheMod implements ModInitializer {
         ServerPlayConnectionEvents.JOIN.register((handler, sender, server) -> this.onPlayerJoin(handler.getPlayer()));
         ServerPlayConnectionEvents.DISCONNECT.register((handler, server) -> this.syncManager.removePlayer(handler.getPlayer()));
         ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register(this::onPlayerChangeWorld);
+
+        // Runs before the world loads. Chunk-load events fire before SERVER_STARTED,
+        // so state must be fresh here, not there.
+        ServerLifecycleEvents.SERVER_STARTING.register(server -> resetServerState());
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
             this.ioThread.start();
@@ -218,7 +218,49 @@ public final class SeasonCacheMod implements ModInitializer {
             LOGGER.info("Season Cache: IO and derivation threads shut down.");
         });
 
+        // Replace everything with empty, unstarted objects so the old world's cached
+        // regions can be garbage collected while the game keeps running.
+        ServerLifecycleEvents.SERVER_STOPPED.register(server -> resetServerState());
+
         LOGGER.info("Season Cache initialized. provider={}", this.seasonProvider.getProviderId());
+    }
+
+    /**
+     * Builds every piece of per-world state from scratch.
+     *
+     * The mod object lives as long as the game does, but a server does not.
+     * Singleplayer can open world after world in one session. A thread can only
+     * start once, and ChunkSeasonStore caches regions by dimension + region only,
+     * so a reused store would serve the last world's snow data to the next one.
+     * New objects each time fix both. Nothing here starts a thread.
+     */
+    private void resetServerState() {
+        this.ioThread = new RegionIOThread();
+        this.store = new ChunkSeasonStore();
+        this.store.setIOThread(this.ioThread);
+        this.syncManager = new SeasonCacheSyncManager(this.store);
+        this.reconciler = new ChunkSeasonReconciler(this.config, this.seasonProvider, this.epochService, this.store);
+        this.coverageBuilder = new UnloadedChunkCoverageBuilder(this.config, this.seasonProvider, this.epochService, this.store, this.ioThread);
+        this.derivationThread = null;
+
+        this.seasonalColdOverrides = Set.of();
+        this.seasonRuleConfig = new RuntimeTypes.SeasonRuleConfig(true, java.util.Map.of(), java.util.List.of(), "", null);
+
+        this.lastKnownEpoch = null;
+        this.neighbourhoodTick = 0;
+        this.loadedChunkKeys.clear();
+        this.loadedSweepQueue.clear();
+        this.loadedSweepQueued.clear();
+        this.loadedSweepEpoch = 0;
+        this.derivationResults = new ConcurrentLinkedQueue<>();
+        this.pendingDerivations.clear();
+
+        this.pendingStartupInvalidation = false;
+        this.runtimeActivated = false;
+        this.activationTicksRemaining = -1;
+        this.seasonChangeSweepTicksRemaining = -1;
+        this.pendingSeasonKey = null;
+        this.pendingSeasonEpoch = 0;
     }
 
     private void onChunkLoad(ServerLevel world, LevelChunk chunk, boolean newlyGenerated) {

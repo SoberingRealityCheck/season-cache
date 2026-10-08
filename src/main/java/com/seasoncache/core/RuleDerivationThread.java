@@ -60,6 +60,11 @@ public final class RuleDerivationThread {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        if (this.thread.isAlive()) {
+            // Still draining after 5s. It is a daemon and only touches its own queue,
+            // so it ends on its own. The next world gets new objects.
+            SeasonCacheMod.LOGGER.warn("Season Cache: derivation thread still draining after shutdown wait.");
+        }
     }
 
     public void submit(DerivationTask task) {
