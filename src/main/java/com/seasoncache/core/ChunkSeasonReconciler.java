@@ -44,17 +44,6 @@ public final class ChunkSeasonReconciler {
         return chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
     }
 
-    /**
-     * Like topY, but the heightmap counts leaves. Weather snow lands on tree
-     * canopies, and topY (NO_LEAVES) looks straight past it. Same chunk-not-loaded
-     * guard as topY. Only used to find snow to remove, never to place it.
-     */
-    public static int canopyY(ServerLevel world, int x, int z) {
-        LevelChunk chunk = world.getChunkSource().getChunkNow(x >> 4, z >> 4);
-        if (chunk == null) return world.getMinY();
-        return chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z);
-    }
-
     /** 26.x dropped new ChunkPos(BlockPos). Block to chunk is a shift by 4. */
     public static ChunkPos chunkOf(BlockPos p) {
         return new ChunkPos(p.getX() >> 4, p.getZ() >> 4);
@@ -227,20 +216,6 @@ public final class ChunkSeasonReconciler {
                         world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
                     } else if (this.config.trackIce && surface.is(Blocks.ICE)) {
                         world.setBlock(pos, Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
-                    }
-                    // Snow on leaves. The ground checks above never see it, so it
-                    // was left for SS's slow random melt. Skip when the canopy is the
-                    // ground (same Y), already handled.
-                    if (this.config.trackSnow) {
-                        int canopyTop = canopyY(world, worldX, worldZ);
-                        if (canopyTop - 1 > surfaceY) {
-                            for (int y = canopyTop; y >= canopyTop - 1; y--) {
-                                pos.set(worldX, y, worldZ);
-                                if (world.getBlockState(pos).is(Blocks.SNOW)) {
-                                    world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                                }
-                            }
-                        }
                     }
                 }
             }

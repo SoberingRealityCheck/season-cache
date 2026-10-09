@@ -1,13 +1,5 @@
 # Changelog
 
-## Unreleased
-
-### Bug fix — snow on tree canopies never removed
-
-Removal used the NO_LEAVES heightmap, so it only checked the ground under trees.
-Weather snow sits on the leaves, so it was left for Serene Seasons' slow random
-melt. The remove pass now also checks the MOTION_BLOCKING (canopy) top.
-
 ## 1.3.1 — Bug fixes and dead code removal
 
 ### Bug fix — snow_placement_blacklist not applied
