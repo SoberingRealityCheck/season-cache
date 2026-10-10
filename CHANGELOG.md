@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Bug fix — snow on tree canopies never removed
+
+Removal used the NO_LEAVES heightmap, so it only looked at the ground under trees.
+Weather snow sits on the leaves and was left to Serene Seasons' slow random melt.
+The remove pass now also checks the MOTION_BLOCKING (canopy) top. Measured on a
+dev server over a forest, real weather snow in mid winter, then early summer:
+8254 snow blocks -> 4207 left without this fix (3956 of them on leaves), 297 with it.
+
 ### Bug fix — ground snow never removed or placed (off by one)
 
 In 26.x `chunk.getHeight` returns the Y of the highest block. The 1.21 code this
