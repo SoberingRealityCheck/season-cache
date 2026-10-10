@@ -41,7 +41,15 @@ public final class ChunkSeasonReconciler {
     public static int topY(ServerLevel world, int x, int z) {
         LevelChunk chunk = world.getChunkSource().getChunkNow(x >> 4, z >> 4);
         if (chunk == null) return world.getMinY();
-        return chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z);
+        // 26.x chunk.getHeight is the Y of the highest block. Every caller here (and the
+        // 1.21 code this was ported from) wants the first free Y above it, so add 1.
+        // Without the +1 every "topY - 1" landed one block too low: snow sitting on the
+        // ground was never found to remove, and never placed.
+        // 26.x chunk.getHeight is the Y of the highest block. Every caller here (and the
+        // 1.21 code this was ported from) wants the first free Y above it, so add 1.
+        // Without the +1 every "topY - 1" landed one block too low: snow sitting on the
+        // ground was never found to remove, and never placed.
+        return chunk.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, x, z) + 1;
     }
 
     /** 26.x dropped new ChunkPos(BlockPos). Block to chunk is a shift by 4. */

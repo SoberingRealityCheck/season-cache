@@ -264,7 +264,7 @@ public final class SeasonCacheMod implements ModInitializer {
         int worldZ = chunkPos.getMinBlockZ() + 8;
         int surfaceY = Math.max(
                 (loaded != null
-                        ? loaded.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, worldX, worldZ)
+                        ? loaded.getHeight(Heightmap.Types.MOTION_BLOCKING_NO_LEAVES, worldX, worldZ) + 1
                         : ChunkSeasonReconciler.topY(world, worldX, worldZ)) - 1,
                 world.getMinY());
         BlockPos samplePos = new BlockPos(worldX, surfaceY, worldZ);

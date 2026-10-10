@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+### Bug fix — ground snow never removed or placed (off by one)
+
+In 26.x `chunk.getHeight` returns the Y of the highest block. The 1.21 code this
+was ported from got the first free Y above it. `topY()` kept the old meaning, so every
+`topY - 1` landed one block too low. Snow on the ground was never found to remove,
+and never placed, so only Serene Seasons' slow random melt cleared it.
+`topY()` now adds 1. Reproduced on a flat dev server: before, snow survived a forced
+sweep in early summer and none was placed in mid winter. After, both work.
+
 ## 1.3.1 — Bug fixes and dead code removal
 
 ### Bug fix — snow_placement_blacklist not applied
