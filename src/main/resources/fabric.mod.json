@@ -16,6 +16,9 @@
   "license": "MIT",
   "icon": "assets/seasoncache/icon.png",
   "environment": "*",
+  "mixins": [
+    "seasoncache.mixins.json"
+  ],
   "entrypoints": {
     "main": [
       "com.seasoncache.SeasonCacheMod"

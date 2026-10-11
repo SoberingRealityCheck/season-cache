@@ -48,7 +48,9 @@ public final class SeasonCacheCommands {
                 .then(Commands.literal("debugstate")
                         .executes(ctx -> runDebugState(ctx.getSource())))
                 .then(Commands.literal("sweep")
-                        .executes(ctx -> runSweep(ctx.getSource()))));
+                        .executes(ctx -> runSweep(ctx.getSource())))
+                .then(Commands.literal("legacysweep")
+                        .executes(ctx -> runLegacySweep(ctx.getSource()))));
     }
 
     private static int runStatus(CommandSourceStack source) {
@@ -369,6 +371,14 @@ public final class SeasonCacheCommands {
         mod.forceSweepLoadedChunks(source.getServer());
         source.sendSuccess(() -> Component.literal(
                 "Season Cache: force sweep queued. All loaded chunks will be re-reconciled. Watch coverageBuild= in /seasoncache status."
+        ), true);
+        return 1;
+    }
+
+    private static int runLegacySweep(CommandSourceStack source) {
+        SeasonCacheMod.get().legacySweepLoadedChunks(source.getServer());
+        source.sendSuccess(() -> Component.literal(
+                "Season Cache: legacy sweep queued. Vanilla snow on the surface of non-snowy chunks will be removed, including snow players placed there."
         ), true);
         return 1;
     }

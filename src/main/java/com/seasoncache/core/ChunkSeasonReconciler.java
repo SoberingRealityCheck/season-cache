@@ -1,5 +1,6 @@
 package com.seasoncache.core;
 
+import com.seasoncache.SeasonCacheBlocks;
 import com.seasoncache.SeasonCacheMod;
 import com.seasoncache.config.SeasonCacheConfig;
 import com.seasoncache.core.store.ChunkSeasonStore;
@@ -17,7 +18,9 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.chunk.LevelChunk;
+import net.minecraft.world.level.chunk.LevelChunkSection;
 import net.minecraft.world.level.levelgen.Heightmap;
 import net.minecraft.world.level.biome.Biome;
 import sereneseasons.api.season.Season;
@@ -203,55 +206,24 @@ public final class ChunkSeasonReconciler {
         }
     }
 
+    /**
+     * Legacy switch for /seasoncache legacysweep. Snow that fell before seasonal snow
+     * existed is vanilla snow. The heightmap path below finds it, but it also deletes
+     * a builder's surface snow. So it only runs when an admin asks, never on a season
+     * change. Hack: one flag for the whole server, cleared when the sweep queue drains.
+     */
+    private volatile boolean legacyRemoval = false;
+
+    public void setLegacyRemoval(boolean on) {
+        this.legacyRemoval = on;
+    }
+
     private void applyChunkTruth(ServerLevel world, ChunkPos chunkPos, boolean snowy) {
         int bottomY = world.getMinY();
-        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
 
-        // Removal is surface-only, symmetric with placement. Scanning all sections
-        // would destroy snow inside buildings, on tree decorations, and in structures.
-        // The heightmap gives us the exact surface layer where seasonal snow lives.
-        for (int localZ = 0; localZ < 16; localZ++) {
-            for (int localX = 0; localX < 16; localX++) {
-                int worldX = chunkPos.getMinBlockX() + localX;
-                int worldZ = chunkPos.getMinBlockZ() + localZ;
-                // getTopY returns the first air block above the surface, so topY-1 is the
-                // surface block (e.g. grass). Snow layers sit ON TOP of the surface at topY,
-                // and ice replaces the surface block at topY-1. Check both positions so we
-                // catch snow regardless of whether it is included in the heightmap or not.
-                int surfaceY = topY(world, worldX, worldZ) - 1;
-                if (surfaceY < bottomY) continue;
-
-                if (!snowy) {
-                    // Check topY (snow on top of surface)
-                    pos.set(worldX, surfaceY + 1, worldZ);
-                    BlockState above = world.getBlockState(pos);
-                    if (this.config.trackSnow && above.is(Blocks.SNOW)) {
-                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                    }
-                    // Check topY-1 (ice in place of surface block, or snow if heightmap included it)
-                    pos.set(worldX, surfaceY, worldZ);
-                    BlockState surface = world.getBlockState(pos);
-                    if (this.config.trackSnow && surface.is(Blocks.SNOW)) {
-                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                    } else if (this.config.trackIce && surface.is(Blocks.ICE)) {
-                        world.setBlock(pos, Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
-                    }
-                    // Snow on leaves. The ground checks above never see it (NO_LEAVES
-                    // heightmap), so it was left to SS's slow random melt. Snow sits
-                    // on the first free Y above the canopy. Skip when there is no canopy.
-                    if (this.config.trackSnow) {
-                        int canopyTop = canopyY(world, worldX, worldZ);
-                        if (canopyTop - 1 > surfaceY) {
-                            for (int y = canopyTop; y >= canopyTop - 1; y--) {
-                                pos.set(worldX, y, worldZ);
-                                if (world.getBlockState(pos).is(Blocks.SNOW)) {
-                                    world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+        if (!snowy) {
+            if (this.config.trackSnow) removeSeasonalSnow(world, chunkPos);
+            if (this.config.trackIce || this.legacyRemoval) removeSurfaceIceAndLegacySnow(world, chunkPos, bottomY);
         }
 
         if (snowy && this.config.cleanupMode == SeasonCacheConfig.CleanupMode.AGGRESSIVE) {
@@ -259,9 +231,85 @@ public final class ChunkSeasonReconciler {
         }
     }
 
+    /**
+     * Remove seasonal snow anywhere in the chunk. Palettes tell us which sections
+     * hold it, so most sections cost nothing. Vanilla snow is never matched.
+     * UPDATE_CLIENTS still runs shape updates, so grass under it loses its snowy top.
+     */
+    private void removeSeasonalSnow(ServerLevel world, ChunkPos chunkPos) {
+        LevelChunk chunk = world.getChunkSource().getChunkNow(chunkPos.x(), chunkPos.z());
+        if (chunk == null) return;
+
+        Block seasonal = SeasonCacheBlocks.SEASONAL_SNOW;
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+        LevelChunkSection[] sections = chunk.getSections();
+        for (int i = 0; i < sections.length; i++) {
+            LevelChunkSection section = sections[i];
+            if (!section.maybeHas(state -> state.is(seasonal))) continue;
+
+            int baseY = SectionPos.sectionToBlockCoord(chunk.getSectionYFromSectionIndex(i));
+            for (int y = 0; y < 16; y++) {
+                for (int z = 0; z < 16; z++) {
+                    for (int x = 0; x < 16; x++) {
+                        if (!section.getBlockState(x, y, z).is(seasonal)) continue;
+                        pos.set(chunkPos.getMinBlockX() + x, baseY + y, chunkPos.getMinBlockZ() + z);
+                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                }
+            }
+        }
+    }
+
+    /**
+     * Heightmap removal. Ice always (trackIce). Vanilla snow only in legacy mode,
+     * because it can't tell weather snow from a builder's snow.
+     */
+    private void removeSurfaceIceAndLegacySnow(ServerLevel world, ChunkPos chunkPos, int bottomY) {
+        boolean legacySnow = this.legacyRemoval && this.config.trackSnow;
+        BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
+
+        for (int localZ = 0; localZ < 16; localZ++) {
+            for (int localX = 0; localX < 16; localX++) {
+                int worldX = chunkPos.getMinBlockX() + localX;
+                int worldZ = chunkPos.getMinBlockZ() + localZ;
+                // topY is the first free Y above the surface. Snow sits at topY,
+                // ice replaces the surface block at topY-1.
+                int surfaceY = topY(world, worldX, worldZ) - 1;
+                if (surfaceY < bottomY) continue;
+
+                if (legacySnow) {
+                    pos.set(worldX, surfaceY + 1, worldZ);
+                    if (world.getBlockState(pos).is(Blocks.SNOW)) {
+                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    }
+                }
+                pos.set(worldX, surfaceY, worldZ);
+                BlockState surface = world.getBlockState(pos);
+                if (legacySnow && surface.is(Blocks.SNOW)) {
+                    world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                } else if (this.config.trackIce && surface.is(Blocks.ICE)) {
+                    world.setBlock(pos, Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
+                }
+                // Snow on leaves. The NO_LEAVES heightmap above never sees it.
+                if (legacySnow) {
+                    int canopyTop = canopyY(world, worldX, worldZ);
+                    if (canopyTop - 1 > surfaceY) {
+                        for (int y = canopyTop; y >= canopyTop - 1; y--) {
+                            pos.set(worldX, y, worldZ);
+                            if (world.getBlockState(pos).is(Blocks.SNOW)) {
+                                world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private void placeSnowAndIce(ServerLevel world, ChunkPos chunkPos, int bottomY) {
         BlockPos.MutableBlockPos pos = new BlockPos.MutableBlockPos();
         BlockPos.MutableBlockPos abovePos = new BlockPos.MutableBlockPos();
+        BlockState seasonalSnow = SeasonCacheBlocks.SEASONAL_SNOW.defaultBlockState();
 
         for (int localZ = 0; localZ < 16; localZ++) {
             for (int localX = 0; localX < 16; localX++) {
@@ -280,9 +328,8 @@ public final class ChunkSeasonReconciler {
                         BlockState surfaceState = world.getBlockState(pos);
                         if (surfaceState.isCollisionShapeFullBlock(world, pos)
                                 && !surfaceState.is(ModTags.SNOW_PLACEMENT_BLACKLIST)
-                                && Blocks.SNOW.defaultBlockState().canSurvive(world, abovePos)) {
-                            world.setBlock(abovePos, Blocks.SNOW.defaultBlockState(),
-                                    Block.UPDATE_CLIENTS);
+                                && seasonalSnow.canSurvive(world, abovePos)) {
+                            world.setBlock(abovePos, seasonalSnow, Block.UPDATE_CLIENTS);
                         }
                     }
                 }

@@ -108,6 +108,7 @@ public final class SeasonCacheMod implements ModInitializer {
     @Override
     public void onInitialize() {
         instance = this;
+        SeasonCacheBlocks.register();
 
         this.config = SeasonCacheConfig.load();
         this.seasonProvider = new SereneAwareSeasonProvider();
@@ -478,6 +479,15 @@ public final class SeasonCacheMod implements ModInitializer {
         enqueueLoadedChunkSweep(server, overworld, epoch, "force-sweep");
     }
 
+    /**
+     * One-shot cleanup of snow that fell before seasonal snow existed. Runs the
+     * heightmap removal during a force sweep. See ChunkSeasonReconciler.legacyRemoval.
+     */
+    public void legacySweepLoadedChunks(MinecraftServer server) {
+        this.reconciler.setLegacyRemoval(true);
+        forceSweepLoadedChunks(server);
+    }
+
     private void enqueueLoadedChunkSweep(MinecraftServer server, ServerLevel overworld, int epoch, String reason) {
         ChunkPos origin = ChunkSeasonReconciler.chunkOf(overworld.getRespawnData().pos());
         for (ServerPlayer player : server.getPlayerList().getPlayers()) {
@@ -563,6 +573,8 @@ public final class SeasonCacheMod implements ModInitializer {
             this.reconciler.reconcile(overworld, chunkPos);
             this.store.markChunkSwept(overworld, chunkPos, currentEpoch);
         }
+
+        if (this.loadedSweepQueue.isEmpty()) this.reconciler.setLegacyRemoval(false);
     }
 
     private boolean hasOverworldPlayers(MinecraftServer server) {
