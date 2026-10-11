@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+### Seasonal snow is its own block
+
+Weather snow and aggressive-mode placement now create `seasoncache:seasonal_snow`.
+It is a copy of vanilla snow (same layers, shape, light, tags, drops). No item.
+Pick-block gives vanilla snow. Season-change removal scans section palettes for it
+and removes only it, anywhere in the chunk, including on leaves and roofs.
+Vanilla snow (worldgen, igloos, builders) is never touched.
+
+This replaces the heightmap removal, which guessed. Measured on the forest test
+(real weather, mid winter then early summer, no manual sweep): 7959 seasonal snow
+-> 0 left. Hand-placed vanilla snow survived. Grass under seasonal snow went snowy
+and reverted. Shovel drops match vanilla.
+
+Snow that fell before this version is vanilla snow. Run `/seasoncache legacysweep`
+once to clear it. It uses the old heightmap removal, so it also deletes snow a
+player put on a surface. It runs only when asked, never on a season change.
+
+The mod must now be on the client too (it already was in the pack).
+Mixin: `ServerLevel.tickPrecipitation` swaps the second `Blocks.SNOW` read. It
+chains with Serene Seasons' redirect on the same method.
+
+### Bug fix — snow_placement_blacklist tag never loaded
+
+It sat in `tags/blocks/`. 26.x reads `tags/block/`. Moved. Aggressive placement now
+skips workstations, chests and the like, as the tag always said it would.
+
 ### Bug fix — snow on tree canopies never removed
 
 Removal used the NO_LEAVES heightmap, so it only looked at the ground under trees.

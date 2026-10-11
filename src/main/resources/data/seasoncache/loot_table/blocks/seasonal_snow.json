@@ -210,7 +210,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
@@ -229,7 +229,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
@@ -248,7 +248,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
@@ -267,7 +267,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
@@ -286,7 +286,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
@@ -305,7 +305,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
@@ -324,7 +324,7 @@
                       "function": "minecraft:set_count"
                     }
                   ],
-                  "name": "seasoncache:seasonal_snow"
+                  "name": "minecraft:snow"
                 },
                 {
                   "type": "minecraft:item",
