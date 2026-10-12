@@ -3,7 +3,10 @@
   "package": "com.seasoncache.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
+    "AbstractHorseMixin",
     "BiomeMixin",
+    "FoxPounceGoalMixin",
+    "RaidMixin",
     "ServerLevelMixin",
     "SnowParityMixin"
   ],
