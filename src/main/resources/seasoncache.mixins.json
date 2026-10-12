@@ -3,7 +3,9 @@
   "package": "com.seasoncache.mixin",
   "compatibilityLevel": "JAVA_21",
   "mixins": [
-    "ServerLevelMixin"
+    "BiomeMixin",
+    "ServerLevelMixin",
+    "SnowParityMixin"
   ],
   "injectors": {
     "defaultRequire": 1

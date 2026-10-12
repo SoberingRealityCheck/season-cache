@@ -22,6 +22,9 @@ player put on a surface. It runs only when asked, never on a season change.
 The mod must now be on the client too (it already was in the pack).
 Mixin: `ServerLevel.tickPrecipitation` swaps the second `Blocks.SNOW` read. It
 chains with Serene Seasons' redirect on the same method.
+Two more mixins make seasonal snow count as snow where vanilla tests `is(Blocks.SNOW)`:
+grass and mycelium `canStayAlive` (the 1-layer rule) and `Biome.shouldSnow` (stacking).
+Tested: grass survives under 1 layer and dies under 4, same as vanilla.
 
 ### Bug fix — snow_placement_blacklist tag never loaded
 
