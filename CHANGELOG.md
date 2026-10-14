@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.1+26.2.3
 
 ### Seasonal snow is its own block
 
