@@ -295,7 +295,7 @@ public final class UnloadedChunkCoverageBuilder {
         }
 
         if (biomeEntry == null) {
-            biomeEntry = world.getBiome(samplePos);
+            biomeEntry = ChunkSeasonReconciler.biomeNoLoad(world, samplePos);
             biomeId = biomeEntry.unwrapKey().map(key -> key.identifier().toString()).orElse(null);
             if (biomeId == null || biomeId.isBlank()) return;
         }

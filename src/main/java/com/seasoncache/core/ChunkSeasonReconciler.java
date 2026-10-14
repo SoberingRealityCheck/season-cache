@@ -18,6 +18,7 @@ import net.minecraft.server.level.ServerLevel;
 import net.minecraft.resources.Identifier;
 import net.minecraft.core.BlockPos;
 import net.minecraft.world.level.ChunkPos;
+import net.minecraft.core.QuartPos;
 import net.minecraft.core.SectionPos;
 import net.minecraft.world.level.chunk.LevelChunk;
 import net.minecraft.world.level.chunk.LevelChunkSection;
@@ -64,6 +65,48 @@ public final class ChunkSeasonReconciler {
         LevelChunk chunk = world.getChunkSource().getChunkNow(x >> 4, z >> 4);
         if (chunk == null) return world.getMinY();
         return chunk.getHeight(Heightmap.Types.MOTION_BLOCKING, x, z) + 1;
+    }
+
+    private static boolean isLoaded(ServerLevel world, int chunkX, int chunkZ) {
+        return world.getChunkSource().getChunkNow(chunkX, chunkZ) != null;
+    }
+
+    /**
+     * Biome at pos without loading anything. A loaded chunk answers normally.
+     * An unloaded one is read from the generator's noise, which is pure math.
+     * HACK/BUG GUARD: Level.getBiome on an unloaded chunk blocks the server
+     * thread until the chunk loads or generates. The watchdog killed the
+     * server that way. Never call world.getBiome on a maybe-unloaded chunk.
+     * Cost: ignores biomes changed after generation (Streams Reflowing rivers).
+     */
+    public static Holder<Biome> biomeNoLoad(ServerLevel world, BlockPos pos) {
+        if (isLoaded(world, pos.getX() >> 4, pos.getZ() >> 4)) return world.getBiome(pos);
+        return world.getUncachedNoiseBiome(
+                QuartPos.fromBlock(pos.getX()), QuartPos.fromBlock(pos.getY()), QuartPos.fromBlock(pos.getZ()));
+    }
+
+    /** Block state, or air if the chunk is not loaded. Same blocking reason as biomeNoLoad. */
+    private static BlockState stateIfLoaded(ServerLevel world, BlockPos pos) {
+        LevelChunk chunk = world.getChunkSource().getChunkNow(pos.getX() >> 4, pos.getZ() >> 4);
+        if (chunk == null) return Blocks.AIR.defaultBlockState();
+        return chunk.getBlockState(pos);
+    }
+
+    /**
+     * setBlock flags for a sweep edit. A shape update reads the 4 side neighbors,
+     * and at a chunk edge one can be an unloaded chunk, which blocks the server
+     * thread. Skip shape updates there. Interior blocks keep them, because grass
+     * under snow needs the update to flip its snowy top.
+     * Cost: at an edge next to an unloaded chunk, grass stays stale until it next updates.
+     */
+    private static int editFlags(ServerLevel world, BlockPos pos) {
+        int cx = pos.getX() >> 4, cz = pos.getZ() >> 4;
+        int lx = pos.getX() & 15, lz = pos.getZ() & 15;
+        boolean openEdge = (lx == 0 && !isLoaded(world, cx - 1, cz))
+                || (lx == 15 && !isLoaded(world, cx + 1, cz))
+                || (lz == 0 && !isLoaded(world, cx, cz - 1))
+                || (lz == 15 && !isLoaded(world, cx, cz + 1));
+        return openEdge ? Block.UPDATE_CLIENTS | Block.UPDATE_KNOWN_SHAPE : Block.UPDATE_CLIENTS;
     }
 
     /** 26.x dropped new ChunkPos(BlockPos). Block to chunk is a shift by 4. */
@@ -150,7 +193,7 @@ public final class ChunkSeasonReconciler {
         int surfaceY = topY(world, worldX, worldZ) - 1;
         surfaceY = Math.max(surfaceY, world.getMinY());
         BlockPos samplePos = new BlockPos(worldX, surfaceY, worldZ);
-        Holder<Biome> biomeEntry = world.getBiome(samplePos);
+        Holder<Biome> biomeEntry = biomeNoLoad(world, samplePos);
         String biomeId = biomeEntry.unwrapKey().map(key -> key.identifier().toString()).orElse(null);
         if (biomeId == null || biomeId.isBlank()) return null;
         return new RuntimeTypes.StaticChunkClimate(biomeId, surfaceY);
@@ -167,7 +210,7 @@ public final class ChunkSeasonReconciler {
 
         Holder<Biome> biomeEntry = resolveBiomeEntry(world, staticSample.biomeId());
         if (biomeEntry == null) {
-            biomeEntry = world.getBiome(samplePos);
+            biomeEntry = biomeNoLoad(world, samplePos);
         }
 
         return buildChunkSeasonRule(samplePos, biomeEntry, SeasonCacheMod.get().seasonRuleConfig(), world.getSeaLevel());
@@ -234,7 +277,7 @@ public final class ChunkSeasonReconciler {
     /**
      * Remove seasonal snow anywhere in the chunk. Palettes tell us which sections
      * hold it, so most sections cost nothing. Vanilla snow is never matched.
-     * UPDATE_CLIENTS still runs shape updates, so grass under it loses its snowy top.
+     * Edits keep shape updates (see editFlags), so grass under it loses its snowy top.
      */
     private void removeSeasonalSnow(ServerLevel world, ChunkPos chunkPos) {
         LevelChunk chunk = world.getChunkSource().getChunkNow(chunkPos.x(), chunkPos.z());
@@ -253,7 +296,7 @@ public final class ChunkSeasonReconciler {
                     for (int x = 0; x < 16; x++) {
                         if (!section.getBlockState(x, y, z).is(seasonal)) continue;
                         pos.set(chunkPos.getMinBlockX() + x, baseY + y, chunkPos.getMinBlockZ() + z);
-                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), editFlags(world, pos));
                     }
                 }
             }
@@ -280,15 +323,15 @@ public final class ChunkSeasonReconciler {
                 if (legacySnow) {
                     pos.set(worldX, surfaceY + 1, worldZ);
                     if (world.getBlockState(pos).is(Blocks.SNOW)) {
-                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                        world.setBlock(pos, Blocks.AIR.defaultBlockState(), editFlags(world, pos));
                     }
                 }
                 pos.set(worldX, surfaceY, worldZ);
                 BlockState surface = world.getBlockState(pos);
                 if (legacySnow && surface.is(Blocks.SNOW)) {
-                    world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    world.setBlock(pos, Blocks.AIR.defaultBlockState(), editFlags(world, pos));
                 } else if (this.config.trackIce && surface.is(Blocks.ICE)) {
-                    world.setBlock(pos, Blocks.WATER.defaultBlockState(), Block.UPDATE_CLIENTS);
+                    world.setBlock(pos, Blocks.WATER.defaultBlockState(), editFlags(world, pos));
                 }
                 // Snow on leaves. The NO_LEAVES heightmap above never sees it.
                 if (legacySnow) {
@@ -297,7 +340,7 @@ public final class ChunkSeasonReconciler {
                         for (int y = canopyTop; y >= canopyTop - 1; y--) {
                             pos.set(worldX, y, worldZ);
                             if (world.getBlockState(pos).is(Blocks.SNOW)) {
-                                world.setBlock(pos, Blocks.AIR.defaultBlockState(), Block.UPDATE_CLIENTS);
+                                world.setBlock(pos, Blocks.AIR.defaultBlockState(), editFlags(world, pos));
                             }
                         }
                     }
@@ -329,7 +372,7 @@ public final class ChunkSeasonReconciler {
                         if (surfaceState.isCollisionShapeFullBlock(world, pos)
                                 && !surfaceState.is(ModTags.SNOW_PLACEMENT_BLACKLIST)
                                 && seasonalSnow.canSurvive(world, abovePos)) {
-                            world.setBlock(abovePos, seasonalSnow, Block.UPDATE_CLIENTS);
+                            world.setBlock(abovePos, seasonalSnow, editFlags(world, abovePos));
                         }
                     }
                 }
@@ -341,7 +384,7 @@ public final class ChunkSeasonReconciler {
                             && fluid.getType() == Fluids.WATER
                             && isShorelineAdjacent(world, pos)) {
                         world.setBlock(pos, Blocks.ICE.defaultBlockState(),
-                                Block.UPDATE_CLIENTS);
+                                editFlags(world, pos));
                     }
                 }
             }
@@ -354,10 +397,10 @@ public final class ChunkSeasonReconciler {
         int z = waterPos.getZ();
         BlockPos.MutableBlockPos check = new BlockPos.MutableBlockPos();
 
-        check.set(x + 1, y, z); if (isSolidLand(world.getBlockState(check))) return true;
-        check.set(x - 1, y, z); if (isSolidLand(world.getBlockState(check))) return true;
-        check.set(x, y, z + 1); if (isSolidLand(world.getBlockState(check))) return true;
-        check.set(x, y, z - 1); if (isSolidLand(world.getBlockState(check))) return true;
+        check.set(x + 1, y, z); if (isSolidLand(stateIfLoaded(world, check))) return true;
+        check.set(x - 1, y, z); if (isSolidLand(stateIfLoaded(world, check))) return true;
+        check.set(x, y, z + 1); if (isSolidLand(stateIfLoaded(world, check))) return true;
+        check.set(x, y, z - 1); if (isSolidLand(stateIfLoaded(world, check))) return true;
 
         return false;
     }

@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.3.1+26.2.4
+
+### Bug fix: server thread froze on chunk loads
+
+The server watchdog killed the server six times in three days. Every time the main
+thread was parked in `getChunkBlocking`. Three calls in this mod caused it:
+
+- Coverage builder, rule derivation and the rule fallback read the biome with
+  `Level.getBiome`. On an unloaded chunk that loads or generates it. They now use
+  `ChunkSeasonReconciler.biomeNoLoad`, which reads the generator's noise instead.
+  It ignores biomes changed after generation (Streams Reflowing rivers).
+- The ice shoreline check read neighbor blocks across chunk edges. It now treats an
+  unloaded chunk as air. Ice next to an unloaded chunk waits for the next pass.
+- Sweep `setBlock` calls ran shape updates, which read the neighbor chunk at a chunk
+  edge. At an edge next to an unloaded chunk they now skip shape updates. Interior
+  blocks are unchanged, so grass under snow still flips.
+
+Not fixed here: Ultimate Map Atlases has the same kind of call in `MapItem.update`.
+
 ## 1.3.1+26.2.3
 
 ### Seasonal snow is its own block

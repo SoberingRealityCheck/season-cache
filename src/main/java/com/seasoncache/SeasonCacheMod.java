@@ -269,7 +269,7 @@ public final class SeasonCacheMod implements ModInitializer {
                         : ChunkSeasonReconciler.topY(world, worldX, worldZ)) - 1,
                 world.getMinY());
         BlockPos samplePos = new BlockPos(worldX, surfaceY, worldZ);
-        Holder<Biome> biomeEntry = world.getBiome(samplePos);
+        Holder<Biome> biomeEntry = ChunkSeasonReconciler.biomeNoLoad(world, samplePos);
         String biomeId = biomeEntry.unwrapKey().map(k -> k.identifier().toString()).orElse(null);
         if (biomeId == null || biomeId.isBlank()) {
             this.pendingDerivations.remove(key);
