@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "id": "seasoncache",
   "version": "${version}",
-  "name": "Season Cache",
-  "description": "Keeps snow and ice in sync with Serene Seasons. Removes snow in spring, places it in winter, and drives LOD shader snow coverage for Nova Reimagined and Distant Horizons.",
+  "name": "Seasonal Terrain",
+  "description": "Makes the world follow Serene Seasons. Seasonal snow and ice on loaded chunks, and season colors and snow on Distant Horizons terrain, with no shader needed.",
   "authors": [
     "ItsThatNova",
     "SoberingRealityCheck (26.2 port)"
@@ -26,6 +26,9 @@
     "client": [
       "com.seasoncache.client.SeasonCacheClient"
     ]
+  },
+  "suggests": {
+    "distanthorizons": "~3.3.2"
   },
   "depends": {
     "fabricloader": ">=0.19.0",

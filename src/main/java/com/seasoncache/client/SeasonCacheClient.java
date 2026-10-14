@@ -5,7 +5,9 @@ import com.seasoncache.network.payload.ChunkStatesPayload;
 import com.seasoncache.network.payload.EpochInvalidatePayload;
 import com.seasoncache.network.payload.SnapshotBeginPayload;
 import com.seasoncache.network.payload.SnapshotEndPayload;
+import com.seasoncache.lod.LodSweep;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.loader.api.FabricLoader;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayConnectionEvents;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 
@@ -28,5 +30,11 @@ public final class SeasonCacheClient implements ClientModInitializer {
 
         ClientPlayConnectionEvents.DISCONNECT.register((handler, client) -> SeasonCacheClientState.resetAll());
         ClientPlayConnectionEvents.JOIN.register((handler, sender, client) -> SeasonCacheClientState.resetAll());
+
+        // LOD recolor and rebuild. Needs Distant Horizons, so nothing in com.seasoncache.lod
+        // may load without it.
+        if (FabricLoader.getInstance().isModLoaded("distanthorizons")) {
+            new LodSweep().init();
+        }
     }
 }

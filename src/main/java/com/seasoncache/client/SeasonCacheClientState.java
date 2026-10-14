@@ -28,6 +28,12 @@ public final class SeasonCacheClientState {
     private static final Queue<SeasonCacheClientApi.ClientSnowEvent> EVENTS = new ConcurrentLinkedQueue<>();
     private static volatile boolean authoritativeSessionActive = false;
 
+    // Events only matter to a consumer that drains them (Nova Reimagined Snow). With none,
+    // the queue grew by one entry per chunk update, forever. Until something has drained
+    // once, stop adding past this many. Hack: a late consumer misses the overflow.
+    private static final int MAX_UNREAD_EVENTS = 100_000;
+    private static volatile boolean eventConsumerSeen = false;
+
     private SeasonCacheClientState() {
     }
 
@@ -58,6 +64,7 @@ public final class SeasonCacheClientState {
     }
 
     public static List<SeasonCacheClientApi.ClientSnowEvent> drainEvents() {
+        eventConsumerSeen = true;
         List<SeasonCacheClientApi.ClientSnowEvent> drained = new ArrayList<>();
         SeasonCacheClientApi.ClientSnowEvent event;
         while ((event = EVENTS.poll()) != null) {
@@ -73,7 +80,7 @@ public final class SeasonCacheClientState {
         state.epoch = epoch;
         state.snapshotInProgress = true;
         authoritativeSessionActive = true;
-        EVENTS.add(SeasonCacheClientApi.ClientSnowEvent.reset(dimension, epoch));
+        addEvent(SeasonCacheClientApi.ClientSnowEvent.reset(dimension, epoch));
     }
 
     public static void applyInvalidate(Identifier dimensionId, int epoch) {
@@ -83,7 +90,7 @@ public final class SeasonCacheClientState {
         state.epoch = epoch;
         state.snapshotInProgress = false;
         authoritativeSessionActive = true;
-        EVENTS.add(SeasonCacheClientApi.ClientSnowEvent.reset(dimension, epoch));
+        addEvent(SeasonCacheClientApi.ClientSnowEvent.reset(dimension, epoch));
     }
 
     public static void endSnapshot(Identifier dimensionId, int epoch) {
@@ -105,8 +112,13 @@ public final class SeasonCacheClientState {
             int chunkZ = ChunkStatePacking.unpackChunkZ(packed);
             boolean snowy = ChunkStatePacking.unpackSnowy(packed);
             state.chunkSnowStates.put(packChunkKey(chunkX, chunkZ), snowy);
-            EVENTS.add(SeasonCacheClientApi.ClientSnowEvent.chunkState(dimension, epoch, chunkX, chunkZ, snowy));
+            addEvent(SeasonCacheClientApi.ClientSnowEvent.chunkState(dimension, epoch, chunkX, chunkZ, snowy));
         }
+    }
+
+    private static void addEvent(SeasonCacheClientApi.ClientSnowEvent event) {
+        if (!eventConsumerSeen && EVENTS.size() >= MAX_UNREAD_EVENTS) return;
+        EVENTS.add(event);
     }
 
     private static long packChunkKey(int chunkX, int chunkZ) {

@@ -1,5 +1,25 @@
 # Changelog
 
+## 1.4.0+26.2.0
+
+### Renamed to Seasonal Terrain, and merged with Seasonal LODs (ssdh)
+
+The mod id is still `seasoncache`, because saved chunks hold `seasoncache:seasonal_snow`.
+Only the display name changed. Seasonal LODs (`ssdh26`) is now part of this jar, so remove
+it from the pack. Distant Horizons is optional. Without it, none of the LOD code loads.
+
+- Season colors on far terrain. On a season change it clears DH's color caches and
+  rebuilds every rendered LOD, nearest first, twice (the second pass catches stragglers).
+  Code is in `com.seasoncache.lod`, moved over unchanged from ssdh 1.0.2.
+- Snow on far terrain with no shader. In a chunk the server marks snowy, grass, leaves
+  and similar blocks are pulled toward white through DH's `DhApiBlockColorOverrideEvent`.
+  `/ssdh snow` shows counters, `/ssdh snow on|off` toggles it.
+  PROTOTYPE: not yet seen working in game. Snow edges land on chunk borders (one bit per chunk).
+- Fix: the client event queue grew by one entry per chunk update when nothing drained it.
+  It is now capped at 100k until a consumer drains once.
+- `ssdh:season_meta` and `ssdh:season_phase` textures are kept for Nova Reimagined only.
+  Delete `SeasonMetaTexture` when the pack drops Nova.
+
 ## 1.3.1+26.2.4
 
 ### Bug fix: server thread froze on chunk loads

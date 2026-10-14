@@ -1,4 +1,6 @@
-# Season Cache
+# Seasonal Terrain (mod id: seasoncache)
+
+Formerly Season Cache. Now also contains Seasonal LODs, which recolors Distant Horizons terrain when the season changes and paints snow on far terrain without a shader. Distant Horizons is optional. See CHANGELOG.md.
 
 **Minecraft 1.21.x  |  Fabric  |  Requires Serene Seasons**
 

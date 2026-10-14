@@ -7,8 +7,9 @@ dependencies {
 	implementation "net.fabricmc:fabric-loader:${project.loader_version}"
 	implementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
 
-	// Serene Seasons. Compile-only: the pack installs the real one.
-	compileOnly fileTree(dir: 'libs', include: 'SereneSeasons*.jar')
+	// Serene Seasons and Distant Horizons. Compile-only: the pack installs the real ones.
+	// The jars are not committed (DH is 27 MB).
+	compileOnly fileTree(dir: 'libs', include: ['SereneSeasons*.jar', 'DistantHorizons*.jar'])
 
 	// Dev server only (./gradlew runServer). Not shipped.
 	runtimeOnly fileTree(dir: 'libs', include: ['SereneSeasons*.jar', 'GlitchCore*.jar'])
