@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.3.2 — Crash when opening a second world
+
+### Bug fix — IllegalThreadStateException on server start
+
+Singleplayer runs a new integrated server in the same JVM for every world opened (and World
+Preview starts its own). The IO thread was created once at mod init, so the second server
+start called `Thread.start()` on a finished thread and crashed. `RegionIOThread` now creates a
+fresh thread on each start. Per-server state (cached sidecar regions, pending derivations,
+activation and sweep state) is cleared between servers, so one world's cache can no longer
+leak into the next.
+
 ## 1.3.1 — Bug fixes and dead code removal
 
 ### Bug fix — snow_placement_blacklist not applied

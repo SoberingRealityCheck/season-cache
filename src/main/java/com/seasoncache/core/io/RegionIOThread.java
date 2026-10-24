@@ -38,8 +38,10 @@ public final class RegionIOThread {
     public static final int NEIGHBOURHOOD_REFRESH_TICKS = 20;
 
     private final PriorityBlockingQueue<IOTask> queue = new PriorityBlockingQueue<>();
-    private final Thread thread;
-    private final AtomicBoolean running = new AtomicBoolean(true);
+    // A new thread per server start: singleplayer runs several integrated servers in one JVM
+    // (each world opened, plus world-preview servers), and a Thread can only be started once.
+    private Thread thread;
+    private final AtomicBoolean running = new AtomicBoolean(false);
 
     // Pending load keys — region keys submitted but not yet completed.
     // Used by the store to avoid submitting duplicate load tasks.
@@ -56,16 +58,24 @@ public final class RegionIOThread {
     private volatile int invalidationTotal = 0;
 
     public RegionIOThread() {
+    }
+
+    public synchronized void start() {
+        if (this.thread != null && this.thread.isAlive()) return;
+        this.queue.clear();
+        this.pendingLoads.clear();
+        this.playerNeighbourhood = Collections.emptySet();
+        this.invalidationProcessed.set(-1);
+        this.invalidationTotal = 0;
+        this.running.set(true);
         this.thread = new Thread(this::run, "season-cache-io");
         this.thread.setDaemon(true);
         this.thread.setPriority(Thread.NORM_PRIORITY - 1);
-    }
-
-    public void start() {
         this.thread.start();
     }
 
-    public void shutdown() {
+    public synchronized void shutdown() {
+        if (this.thread == null) return;
         this.running.set(false);
         this.thread.interrupt();
         try {

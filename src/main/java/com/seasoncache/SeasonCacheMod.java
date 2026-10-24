@@ -130,6 +130,7 @@ public final class SeasonCacheMod implements ModInitializer {
         ServerEntityLevelChangeEvents.AFTER_PLAYER_CHANGE_LEVEL.register(this::onPlayerChangeWorld);
 
         ServerLifecycleEvents.SERVER_STARTED.register(server -> {
+            resetServerState();
             this.ioThread.start();
             try {
                 this.derivationThread = new RuleDerivationThread(this.derivationResults);
@@ -215,10 +216,29 @@ public final class SeasonCacheMod implements ModInitializer {
                 this.derivationThread.shutdown();
             }
             this.ioThread.shutdown();
+            this.store.clear();
             LOGGER.info("Season Cache: IO and derivation threads shut down.");
         });
 
         LOGGER.info("Season Cache initialized. provider={}", this.seasonProvider.getProviderId());
+    }
+
+    /** Per-server state starts fresh: one JVM can host several servers in turn (singleplayer worlds). */
+    private void resetServerState() {
+        this.derivationResults.clear();
+        this.pendingDerivations.clear();
+        this.loadedChunkKeys.clear();
+        this.loadedSweepQueue.clear();
+        this.loadedSweepQueued.clear();
+        this.lastKnownEpoch = null;
+        this.neighbourhoodTick = 0;
+        this.loadedSweepEpoch = 0;
+        this.pendingStartupInvalidation = false;
+        this.runtimeActivated = false;
+        this.activationTicksRemaining = -1;
+        this.seasonChangeSweepTicksRemaining = -1;
+        this.pendingSeasonEpoch = 0;
+        this.pendingSeasonKey = null;
     }
 
     private void onChunkLoad(ServerLevel world, LevelChunk chunk, boolean newlyGenerated) {

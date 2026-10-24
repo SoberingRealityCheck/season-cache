@@ -327,6 +327,12 @@ public final class ChunkSeasonStore {
         }
     }
 
+    /** Forgets every cached region. Call after the IO thread has drained, when a server stops. */
+    public synchronized void clear() {
+        this.loadedRegions.clear();
+        this.pendingWritePaths.clear();
+    }
+
     public synchronized void flushDirty() {
         for (RegionData region : this.loadedRegions.values()) {
             submitWriteIfDirty(region);
